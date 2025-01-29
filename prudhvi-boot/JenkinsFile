@@ -1,0 +1,96 @@
+pipeline {
+    agent any
+
+    
+    environment {
+        // Set SonarQube server and ECR repository details
+        SONARQUBE_SERVER = 'SonarQube'
+        SONAR_PROJECT_KEY = 'prudhvi-boot'
+        ECR_REPO_URI = '448049787674.dkr.ecr.us-west-1.amazonaws.com/prudhvi-boot' // Replace with your ECR URI
+        AWS_REGION = 'us-west-1' // Replace with your AWS region
+        AWS_ACCESS_KEY_ID = credentials(aws-credentials) // Jenkins credentials
+        AWS_SECRET_ACCESS_KEY = credentials(aws-credentials) // Jenkins credentials
+        TRIVY_IMAGE = 'aquasec/trivy:latest' // Use Trivy Docker image
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                // Checkout the code from the repository
+                git branch: 'main', url: 'https://your-repository-url.com/repository.git' // Replace with your Git repo URL
+            }
+        }
+
+        stage('Build & Test') {
+            steps {
+                script {
+                    // Run Maven build and tests
+                    sh 'mvn clean install -DskipTests=true'
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    // Perform SonarQube analysis
+                    withSonarQubeEnv(SONARQUBE_SERVER) {
+                        sh "mvn sonar:sonar -Dsonar.projectKey=${SONAR_PROJECT_KEY} -Dsonar.host.url=http://your-sonarqube-url"  // Replace with your SonarQube URL
+                    }
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    // Build the Docker image using the Dockerfile
+                    sh 'docker build -t ${ECR_REPO_URI}:latest .'
+                }
+            }
+        }
+
+        stage('Trivy Scan') {
+            steps {
+                script {
+                    // Scan the Docker image using Trivy
+                    sh "docker run --rm ${TRIVY_IMAGE} --exit-code 1 --no-progress --severity HIGH ${ECR_REPO_URI}:latest"
+                }
+            }
+        }
+
+        stage('Login to ECR') {
+            steps {
+                script {
+                    // Login to ECR using AWS CLI
+                    sh '''
+                    aws sts get-caller-identity
+                    $(aws ecr get-login --no-include-email --region ${AWS_REGION})
+                    '''
+                }
+            }
+        }
+
+        stage('Push to ECR') {
+            steps {
+                script {
+                    // Push the Docker image to ECR
+                    sh "docker push ${ECR_REPO_URI}:latest"
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            // Clean up any temporary Docker images
+            sh 'docker system prune -f'
+        }
+        success {
+            echo 'Pipeline executed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed. Please check the logs!'
+        }
+    }
+}
