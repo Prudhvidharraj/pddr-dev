@@ -1,68 +1,96 @@
 pipeline {
-  agent {
-    docker {
-      image 'abhishekf5/maven-abhishek-docker-agent:v1'
-      args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // mount Docker socket to access the host's Docker daemon
+    agent any
+
+    
+    environment {
+        // Set SonarQube server and ECR repository details
+        SONARQUBE_SERVER = 'SonarQube'
+        SONAR_PROJECT_KEY = 'prudhvi-boot'
+        ECR_REPO_URI = '448049787674.dkr.ecr.us-west-1.amazonaws.com/prudhvi-boot' // Replace with your ECR URI
+        AWS_REGION = 'us-west-1' // Replace with your AWS region
+        AWS_ACCESS_KEY_ID = credentials(aws-credentials) // Jenkins credentials
+        AWS_SECRET_ACCESS_KEY = credentials(aws-credentials) // Jenkins credentials
+        TRIVY_IMAGE = 'aquasec/trivy:latest' // Use Trivy Docker image
     }
-  }
-  stages {
-    stage('Checkout') {
-      steps {
-        sh 'echo passed'
-        //git branch: 'main', url: ''
-      }
-    }
-    stage('Build and Test') {
-      steps {
-        sh 'ls -ltr'
-        // build the project and create a JAR file
-        sh 'cd spring-boot-app && mvn clean package'
-      }
-    }
-    stage('Static Code Analysis') {
-      environment {
-        SONAR_URL = "http://54.252.140.131:9000"
-      }
-      steps {
-        withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
-          sh 'cd spring-boot-app && mvn sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
-        }
-      }
-    }
-    stage('Build and Push Docker Image') {
-      environment {
-        DOCKER_IMAGE = "ultimate-cicd:${BUILD_NUMBER}"
-        // DOCKERFILE_LOCATION = "spring-boot-app/Dockerfile"
-        REGISTRY_CREDENTIALS = credentials('docker-cred')
-      }
-      steps {
-        script {
-            sh 'cd spring-boot-app && docker build -t ${DOCKER_IMAGE} .'
-            def dockerImage = docker.image("${DOCKER_IMAGE}")
-            docker.withRegistry('https://index.docker.io/v1/', "docker-cred") {
-                dockerImage.push()
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                // Checkout the code from the repository
+                git branch: 'main', url: 'https://your-repository-url.com/repository.git' // Replace with your Git repo URL
             }
         }
-      }
-    }
-    stage('Update Deployment File') {
-        environment {
-            GIT_REPO_NAME = "jenkins-CICD"
-            GIT_USER_NAME = "wangoimwangi"
+
+        stage('Build & Test') {
+            steps {
+                script {
+                    // Run Maven build and tests
+                    sh 'mvn clean install -DskipTests=true'
+                }
+            }
         }
-        steps {
-            withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-                sh '''
-                    git config user.email "mariakoi800@gmail.com"
-                    git config user.name "Maria"
-                    BUILD_NUMBER=${BUILD_NUMBER}
-                    sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" spring-boot-app-manifests/deployment.yml
-                    git add spring-boot-app-manifests/deployment.yml
-                    git commit -m "Update deployment image to version ${BUILD_NUMBER}"
-                    git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
-                '''
+
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    // Perform SonarQube analysis
+                    withSonarQubeEnv(SONARQUBE_SERVER) {
+                        sh "mvn sonar:sonar -Dsonar.projectKey=${SONAR_PROJECT_KEY} -Dsonar.host.url=http://your-sonarqube-url"  // Replace with your SonarQube URL
+                    }
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    // Build the Docker image using the Dockerfile
+                    sh 'docker build -t ${ECR_REPO_URI}:latest .'
+                }
+            }
+        }
+
+        stage('Trivy Scan') {
+            steps {
+                script {
+                    // Scan the Docker image using Trivy
+                    sh "docker run --rm ${TRIVY_IMAGE} --exit-code 1 --no-progress --severity HIGH ${ECR_REPO_URI}:latest"
+                }
+            }
+        }
+
+        stage('Login to ECR') {
+            steps {
+                script {
+                    // Login to ECR using AWS CLI
+                    sh '''
+                    aws sts get-caller-identity
+                    $(aws ecr get-login --no-include-email --region ${AWS_REGION})
+                    '''
+                }
+            }
+        }
+
+        stage('Push to ECR') {
+            steps {
+                script {
+                    // Push the Docker image to ECR
+                    sh "docker push ${ECR_REPO_URI}:latest"
+                }
             }
         }
     }
-  }
+    
+    post {
+        always {
+            // Clean up any temporary Docker images
+            sh 'docker system prune -f'
+        }
+        success {
+            echo 'Pipeline executed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed. Please check the logs!'
+        }
+    }
 }
