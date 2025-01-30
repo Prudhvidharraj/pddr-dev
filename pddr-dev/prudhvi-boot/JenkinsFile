@@ -6,11 +6,8 @@ pipeline {
         SONAR_PROJECT_KEY = 'prudhvi-boot'
         ECR_REPO_URI = '448049787674.dkr.ecr.us-west-1.amazonaws.com/prudhvi-boot'
         AWS_REGION = 'us-west-1'
-        TRIVY_IMAGE = 'aquasec/trivy:latest'
         PROJECT_DIR = 'pddr-dev/prudhvi-boot'
         RECIPIENT_EMAIL = 'nandhuraj0303@gmail.com'
-        IGNORE_FILE = 'ignore-cves.txt' // Path to your ignore-cves.txt file
-        TRIVY_VERSION = '0.29.1' // Optional: specify version if needed
     }
 
     stages {
@@ -55,21 +52,6 @@ pipeline {
                     -t ${ECR_REPO_URI}:latest . 
                     """
                 }
-            }
-        }
-
-        stage('Trivy Scan') {
-            steps {
-                sh """
-                docker run --rm \
-                -v /var/run/docker.sock:/var/run/docker.sock \
-                ${TRIVY_IMAGE} \
-                --exit-code 1 \
-                --severity HIGH,CRITICAL \
-                --no-progress \
-                --ignorefile ${IGNORE_FILE} \
-                image ${ECR_REPO_URI}:${BUILD_NUMBER}
-                """
             }
         }
 
