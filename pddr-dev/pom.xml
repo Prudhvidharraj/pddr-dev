@@ -50,6 +50,7 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Spring Boot DevTools for runtime -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-devtools</artifactId>
@@ -75,4 +76,5 @@
             </plugin>
         </plugins>
     </build>
+
 </project>
