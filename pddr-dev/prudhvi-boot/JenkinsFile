@@ -9,6 +9,8 @@ pipeline {
         TRIVY_IMAGE = 'aquasec/trivy:latest'
         PROJECT_DIR = 'pddr-dev/prudhvi-boot'
         RECIPIENT_EMAIL = 'nandhuraj0303@gmail.com'
+        IGNORE_FILE = 'ignore-cves.txt' // Path to your ignore-cves.txt file
+        TRIVY_VERSION = '0.29.1' // Optional: specify version if needed
     }
 
     stages {
@@ -65,7 +67,7 @@ pipeline {
                 --exit-code 1 \
                 --severity HIGH,CRITICAL \
                 --no-progress \
-                --ignorefile ignore-cves.txt \
+                --ignorefile ${IGNORE_FILE} \
                 image ${ECR_REPO_URI}:${BUILD_NUMBER}
                 """
             }
