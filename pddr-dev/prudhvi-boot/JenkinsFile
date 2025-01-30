@@ -59,7 +59,7 @@ pipeline {
         stage('Trivy Scan') {
             steps {
                 script {
-                    // Create a file with the CVEs to ignore
+                    // Create the ignore file dynamically in Jenkins
                     writeFile file: 'ignore-cves.txt', text: '''CVE-2024-47554
 CVE-2024-34750
 CVE-2024-50379
