@@ -19,10 +19,10 @@
 
     <properties>
         <!-- Override dependency versions to fix CVEs -->
-        <spring-framework.version>5.3.34</spring-framework.version>
+        <spring-framework.version>6.0.0</spring-framework.version> <!-- Updated to fix CVE-2016-1000027 -->
         <snakeyaml.version>2.0</snakeyaml.version>
         <logback.version>1.2.13</logback.version> <!-- Updated version -->
-        <tomcat.version>9.0.90</tomcat.version> <!-- Updated version -->
+        <tomcat.version>9.0.98</tomcat.version> <!-- Updated version -->
         <spring-webmvc.version>6.1.14</spring-webmvc.version> <!-- Updated version -->
     </properties>
 
