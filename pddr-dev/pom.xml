@@ -21,6 +21,9 @@
         <!-- Override dependency versions to fix CVEs -->
         <spring-framework.version>5.3.34</spring-framework.version>
         <snakeyaml.version>2.0</snakeyaml.version>
+        <logback.version>1.2.13</logback.version> <!-- Updated version -->
+        <tomcat.version>9.0.90</tomcat.version> <!-- Updated version -->
+        <spring-webmvc.version>6.1.14</spring-webmvc.version> <!-- Updated version -->
     </properties>
 
     <dependencies>
@@ -41,6 +44,32 @@
             <groupId>org.yaml</groupId>
             <artifactId>snakeyaml</artifactId>
             <version>${snakeyaml.version}</version>
+        </dependency>
+
+        <!-- Logback -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>${logback.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-core</artifactId>
+            <version>${logback.version}</version>
+        </dependency>
+
+        <!-- Apache Tomcat -->
+        <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-core</artifactId>
+            <version>${tomcat.version}</version>
+        </dependency>
+
+        <!-- Spring WebMVC -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-webmvc</artifactId>
+            <version>${spring-webmvc.version}</version>
         </dependency>
 
         <!-- Test dependencies -->
