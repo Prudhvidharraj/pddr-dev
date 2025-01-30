@@ -58,30 +58,16 @@ pipeline {
 
         stage('Trivy Scan') {
             steps {
-                script {
-                    // Create the ignore file dynamically in Jenkins
-                    writeFile file: 'ignore-cves.txt', text: '''CVE-2024-47554
-CVE-2024-34750
-CVE-2024-50379
-CVE-2024-56337
-CVE-2024-38816
-CVE-2024-38819
-CVE-2023-45853
-CVE-2016-1000027
-'''
-
-                    // Run Trivy scan with the ignore file
-                    sh """
-                    docker run --rm \
-                    -v /var/run/docker.sock:/var/run/docker.sock \
-                    ${TRIVY_IMAGE} \
-                    --exit-code 1 \
-                    --severity HIGH,CRITICAL \
-                    --no-progress \
-                    --ignore-file=ignore-cves.txt \
-                    image ${ECR_REPO_URI}:${BUILD_NUMBER}
-                    """
-                }
+                sh """
+                docker run --rm \
+                -v /var/run/docker.sock:/var/run/docker.sock \
+                ${TRIVY_IMAGE} \
+                --exit-code 1 \
+                --severity HIGH,CRITICAL \
+                --no-progress \
+                --ignorefile ignore-cves.txt \
+                image ${ECR_REPO_URI}:${BUILD_NUMBER}
+                """
             }
         }
 
