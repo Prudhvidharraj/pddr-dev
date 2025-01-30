@@ -50,7 +50,7 @@ pipeline {
                     sh """
                     docker build \
                     -t ${ECR_REPO_URI}:${BUILD_NUMBER} \
-                    -t ${ECR_REPO_URI}:latest .
+                    -t ${ECR_REPO_URI}:latest . 
                     """
                 }
             }
@@ -65,6 +65,7 @@ pipeline {
                 --exit-code 1 \
                 --severity HIGH,CRITICAL \
                 --no-progress \
+                --ignore-unfixed \  # Ignore vulnerabilities that are not fixed yet
                 image ${ECR_REPO_URI}:${BUILD_NUMBER}
                 """
             }
