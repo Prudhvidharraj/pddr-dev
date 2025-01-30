@@ -8,7 +8,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.7.0</version>
+        <version>2.7.18</version> <!-- Updated to latest 2.7.x version -->
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
@@ -17,17 +17,33 @@
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
+    <properties>
+        <!-- Override dependency versions to fix CVEs -->
+        <spring-framework.version>5.3.34</spring-framework.version>
+        <snakeyaml.version>2.0</snakeyaml.version>
+    </properties>
+
     <dependencies>
+        <!-- Spring Boot Starter Web (updated via parent) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!-- Spring Boot Starter Thymeleaf -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-thymeleaf</artifactId>
         </dependency>
 
+        <!-- Explicitly override SnakeYAML version -->
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>${snakeyaml.version}</version>
+        </dependency>
+
+        <!-- Test dependencies -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -46,7 +62,6 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <!-- Add configuration to specify main class -->
                 <configuration>
                     <mainClass>com.prudhvi.PrudhviBootApplication</mainClass>
                 </configuration>
