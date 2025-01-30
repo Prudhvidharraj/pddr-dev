@@ -1,30 +1,28 @@
 pipeline {
     agent any
 
-    
     environment {
-        // Set SonarQube server and ECR repository details
         SONARQUBE_SERVER = 'SonarQube'
         SONAR_PROJECT_KEY = 'prudhvi-boot'
-        ECR_REPO_URI = '448049787674.dkr.ecr.us-west-1.amazonaws.com/prudhvi-boot' // Replace with your ECR URI
-        AWS_REGION = 'us-west-1' // Replace with your AWS region
-        AWS_ACCESS_KEY_ID = credentials(aws-credentials) // Jenkins credentials
-        AWS_SECRET_ACCESS_KEY = credentials(aws-credentials) // Jenkins credentials
-        TRIVY_IMAGE = 'aquasec/trivy:latest' // Use Trivy Docker image
+        ECR_REPO_URI = '448049787674.dkr.ecr.us-west-1.amazonaws.com/prudhvi-boot'
+        AWS_REGION = 'us-west-1'
+        TRIVY_IMAGE = 'aquasec/trivy:latest'
+        PROJECT_DIR = 'pddr-dev/prudhvi-boot'
+        RECIPIENT_EMAIL = 'nandhuraj0303@gmail.com'
     }
-    
+
     stages {
         stage('Checkout') {
             steps {
-                // Checkout the code from the repository
-                git branch: 'main', url: 'https://your-repository-url.com/repository.git' // Replace with your Git repo URL
+                cleanWs()
+                git branch: 'main', 
+                    url: 'https://github.com/Prudhvidharraj/pddr-dev.git'
             }
         }
 
         stage('Build & Test') {
             steps {
-                script {
-                    // Run Maven build and tests
+                dir(env.PROJECT_DIR) {
                     sh 'mvn clean install -DskipTests=true'
                 }
             }
@@ -32,10 +30,15 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                script {
-                    // Perform SonarQube analysis
-                    withSonarQubeEnv(SONARQUBE_SERVER) {
-                        sh "mvn sonar:sonar -Dsonar.projectKey=${SONAR_PROJECT_KEY} -Dsonar.host.url=http://your-sonarqube-url"  // Replace with your SonarQube URL
+                dir(env.PROJECT_DIR) {
+                    withSonarQubeEnv(env.SONARQUBE_SERVER) {
+                        sh """
+                        mvn sonar:sonar \
+                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                        -Dsonar.projectName=${SONAR_PROJECT_KEY} \
+                        -Dsonar.host.url=http://54.183.40.137:9000 \
+                        -Dsonar.projectVersion=${BUILD_NUMBER}
+                        """
                     }
                 }
             }
@@ -43,54 +46,78 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    // Build the Docker image using the Dockerfile
-                    sh 'docker build -t ${ECR_REPO_URI}:latest .'
+                dir(env.PROJECT_DIR) {
+                    sh """
+                    docker build \
+                    -t ${ECR_REPO_URI}:${BUILD_NUMBER} \
+                    -t ${ECR_REPO_URI}:latest .
+                    """
                 }
             }
         }
 
         stage('Trivy Scan') {
             steps {
-                script {
-                    // Scan the Docker image using Trivy
-                    sh "docker run --rm ${TRIVY_IMAGE} --exit-code 1 --no-progress --severity HIGH ${ECR_REPO_URI}:latest"
-                }
+                sh """
+                docker run --rm \
+                -v /var/run/docker.sock:/var/run/docker.sock \
+                ${TRIVY_IMAGE} \
+                --exit-code 1 \
+                --severity HIGH,CRITICAL \
+                --no-progress \
+                image ${ECR_REPO_URI}:${BUILD_NUMBER}
+                """
             }
         }
 
         stage('Login to ECR') {
             steps {
-                script {
-                    // Login to ECR using AWS CLI
-                    sh '''
-                    aws sts get-caller-identity
-                    $(aws ecr get-login --no-include-email --region ${AWS_REGION})
-                    '''
+                withAWS(region: env.AWS_REGION, credentials: 'aws-credentials') {
+                    sh """
+                    aws ecr get-login-password --region ${AWS_REGION} | \
+                    docker login --username AWS --password-stdin ${ECR_REPO_URI}
+                    """
                 }
             }
         }
 
         stage('Push to ECR') {
             steps {
-                script {
-                    // Push the Docker image to ECR
-                    sh "docker push ${ECR_REPO_URI}:latest"
-                }
+                sh "docker push ${ECR_REPO_URI}:${BUILD_NUMBER}"
+                sh "docker push ${ECR_REPO_URI}:latest"
             }
         }
     }
-    
+
     post {
         always {
-            // Clean up any temporary Docker images
-            sh 'docker system prune -f'
+            sh 'docker system prune -f --all'
+            cleanWs()
         }
         success {
-            echo 'Pipeline executed successfully!'
+            emailext(
+                subject: "SUCCESS: Pipeline '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+                body: """
+                <p>SUCCESS: Pipeline '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+                <p>Check console output at: <a href="${env.BUILD_URL}">${env.JOB_NAME} [${env.BUILD_NUMBER}]</a></p>
+                """,
+                to: env.RECIPIENT_EMAIL,
+                mimeType: 'text/html'
+            )
         }
         failure {
-            echo 'Pipeline failed. Please check the logs!'
+            emailext(
+                subject: "FAILED: Pipeline '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+                body: """
+                <p>FAILED: Pipeline '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+                <p>Check console output at: <a href="${env.BUILD_URL}">${env.JOB_NAME} [${env.BUILD_NUMBER}]</a></p>
+                <p>Error details in attached build log</p>
+                """,
+                to: env.RECIPIENT_EMAIL,
+                mimeType: 'text/html',
+                attachLog: true
+            )
+            archiveArtifacts artifacts: '**/target/*.log', allowEmptyArchive: true
         }
     }
 }
