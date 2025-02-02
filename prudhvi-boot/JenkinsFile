@@ -4,12 +4,12 @@ pipeline {
     environment {
         SONARQUBE_SERVER = 'SonarQube'
         SONAR_PROJECT_KEY = 'prudhvi-test'
-        ECR_REGISTRY = '448049787674.dkr.ecr.us-west-1.amazonaws.com'  // Registry URL without repo
-        ECR_REPOSITORY = 'prudhvi-top'  // Repository name
-        ECR_REPO_URI = "${ECR_REGISTRY}/${ECR_REPOSITORY}"  // Full image URI
+        ECR_REGISTRY = '448049787674.dkr.ecr.us-west-1.amazonaws.com'
+        ECR_REPOSITORY = 'prudhvi-top'
+        ECR_REPO_URI = "${ECR_REGISTRY}/${ECR_REPOSITORY}"
         AWS_REGION = 'us-west-1'
         TRIVY_IMAGE = 'aquasec/trivy:latest'
-        PROJECT_DIR = 'pddr-dev/prudhvi-boot'
+        PROJECT_DIR = 'prudhvi-boot'
         RECIPIENT_EMAIL = 'nandhuraj0303@gmail.com'
     }
 
@@ -73,15 +73,12 @@ pipeline {
             }
         }
 
-        // Removed explicit 'Login to ECR' stage; handled by docker.withRegistry
-
         stage('Push to ECR') {
             steps {
                 script {
-                    // Authenticate and push using Jenkins Docker/ECR plugins
                     docker.withRegistry("https://${ECR_REGISTRY}", "ecr:${AWS_REGION}:aws-credentials") {
-                        sh "docker push ${ECR_REPO_URI}:${BUILD_NUMBER}"
-                        sh "docker push ${ECR_REPO_URI}:latest"
+                        docker.image("${ECR_REPO_URI}:${BUILD_NUMBER}").push()
+                        docker.image("${ECR_REPO_URI}:latest").push()
                     }
                 }
             }
@@ -90,33 +87,33 @@ pipeline {
 
     post {
         always {
-            sh 'docker image prune -f --filter "dangling=true"'  // Cleanup dangling images
+            sh 'docker image prune -f --filter "dangling=true"'
             cleanWs()
         }
         success {
             emailext(
-                subject: "SUCCESS: Pipeline '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-                body: """
-                <p>SUCCESS: Pipeline '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
-                <p>Check console output at: <a href="${env.BUILD_URL}">${env.JOB_NAME} [${env.BUILD_NUMBER}]</a></p>
-                """,
-                to: env.RECIPIENT_EMAIL,
-                mimeType: 'text/html'
+                subject: "SUCCESS: ${currentBuild.fullDisplayName}",
+                body: """<p>Build succeeded!</p>
+                <p>ECR Image: ${ECR_REPO_URI}:${BUILD_NUMBER}</p>
+                <p>SonarQube Report: <a href="http://54.183.40.137:9000/dashboard?id=${SONAR_PROJECT_KEY}">Link</a></p>
+                <p>Build URL: <a href="${BUILD_URL}">${BUILD_URL}</a></p>""",
+                to: "${RECIPIENT_EMAIL}",
+                replyTo: "${RECIPIENT_EMAIL}",
+                mimeType: 'text/html',
+                recipientProviders: [[$class: 'DevelopersRecipientProvider']]
             )
         }
         failure {
             emailext(
-                subject: "FAILED: Pipeline '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-                body: """
-                <p>FAILED: Pipeline '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
-                <p>Check console output at: <a href="${env.BUILD_URL}">${env.JOB_NAME} [${env.BUILD_NUMBER}]</a></p>
-                <p>Error details in attached build log</p>
-                """,
-                to: env.RECIPIENT_EMAIL,
+                subject: "FAILED: ${currentBuild.fullDisplayName}",
+                body: """<p>Build failed! Check logs:</p>
+                <p><a href="${BUILD_URL}">${BUILD_URL}</a></p>""",
+                to: "${RECIPIENT_EMAIL}",
+                replyTo: "${RECIPIENT_EMAIL}",
                 mimeType: 'text/html',
-                attachLog: true
+                attachLog: true,
+                recipientProviders: [[$class: 'DevelopersRecipientProvider']]
             )
-            archiveArtifacts artifacts: '**/target/*.log', allowEmptyArchive: true
         }
     }
 }
