@@ -9,7 +9,6 @@ pipeline {
         ECR_REPO_URI = "${ECR_REGISTRY}/${ECR_REPOSITORY}"
         AWS_REGION = 'us-west-1'
         TRIVY_IMAGE = 'aquasec/trivy:latest'
-        PROJECT_DIR = 'prudhvi-boot'
         RECIPIENT_EMAIL = 'nandhuraj0303@gmail.com'
     }
 
@@ -24,37 +23,31 @@ pipeline {
 
         stage('Build & Test') {
             steps {
-                dir(env.PROJECT_DIR) {
-                    sh 'mvn clean install -DskipTests=true'
-                }
+                sh 'mvn clean install -DskipTests=true'
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
-                dir(env.PROJECT_DIR) {
-                    withSonarQubeEnv(env.SONARQUBE_SERVER) {
-                        sh """
-                        mvn sonar:sonar \
-                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                        -Dsonar.projectName=${SONAR_PROJECT_KEY} \
-                        -Dsonar.host.url=http://54.183.40.137:9000 \
-                        -Dsonar.projectVersion=${BUILD_NUMBER}
-                        """
-                    }
+                withSonarQubeEnv(env.SONARQUBE_SERVER) {
+                    sh """
+                    mvn sonar:sonar \
+                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                    -Dsonar.projectName=${SONAR_PROJECT_KEY} \
+                    -Dsonar.host.url=http://54.183.40.137:9000 \
+                    -Dsonar.projectVersion=${BUILD_NUMBER}
+                    """
                 }
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                dir(env.PROJECT_DIR) {
-                    sh """
-                    docker build \
-                    -t ${ECR_REPO_URI}:${BUILD_NUMBER} \
-                    -t ${ECR_REPO_URI}:latest .
-                    """
-                }
+                sh """
+                docker build \
+                -t ${ECR_REPO_URI}:${BUILD_NUMBER} \
+                -t ${ECR_REPO_URI}:latest .
+                """
             }
         }
 
@@ -117,3 +110,4 @@ pipeline {
         }
     }
 }
+			
